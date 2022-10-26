@@ -1,8 +1,24 @@
 const mongoose = require('mongoose');
 const httpStatus = require('http-status');
+const Sentry = require('@sentry/node');
 const config = require('../config/config');
 const logger = require('../config/logger');
 const ApiError = require('../utils/ApiError');
+
+// or use es6 import statements
+// import * as Sentry from '@sentry/node';
+
+// or use es6 import statements
+// import * as Tracing from '@sentry/tracing';
+
+Sentry.init({
+  dsn: config.sentry_dns,
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0,
+});
 
 const errorConverter = (err, req, res, next) => {
   let error = err;
@@ -34,6 +50,13 @@ const errorHandler = (err, req, res, next) => {
   if (config.env === 'development') {
     logger.error(err);
   }
+
+  const transaction = Sentry.startTransaction({
+    op: 'error',
+    name: err.message,
+  });
+  Sentry.captureException(err);
+  transaction.finish();
 
   res.status(statusCode).send(response);
 };
